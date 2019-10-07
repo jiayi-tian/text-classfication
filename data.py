@@ -56,11 +56,11 @@ def build_dataset(path, ues_word):
         tokenizer = lambda x: x.split(' ')  # 以空格隔开，word-level
     else:
         tokenizer = lambda x: [y for y in x]  # char-level
-    # if os.path.exists("./data/vocab_new.pkl"):
-    #     vocab = pkl.load(open("./data/vocab_new.pkl", 'rb'))
-    # else:
-    vocab, lable = read_txt(path, tokenizer=tokenizer, max_size=MAX_VOCAB_SIZE, min_freq=1)
-    pkl.dump((vocab, lable), open("./data/vocab_new.pkl", 'wb'))
+    if os.path.exists("./data/vocab_new.pkl"):
+        vocab = pkl.load(open("./data/vocab_new.pkl", 'rb'))
+    else:
+        vocab, lable = read_txt(path, tokenizer=tokenizer, max_size=MAX_VOCAB_SIZE, min_freq=1)
+        pkl.dump((vocab, lable), open("./data/vocab_new.pkl", 'wb'))
     print(f"Vocab size: {len(vocab)}")
 
     def load_dataset(path, pad_size=32):
