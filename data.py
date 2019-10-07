@@ -7,51 +7,34 @@ import torch
 import numpy as np
 import time
 from datetime import timedelta
+from sklearn.model_selection import train_test_split
 
 
 MAX_VOCAB_SIZE = 10000  # 词表长度限制
 UNK, PAD = '<UNK>', '<PAD>'  # 未知字，padding符号
 
-def read_txt(class_path, tokenizer, max_size, min_freq):
+def read_txt(all_path, tokenizer, max_size, min_freq):
     vocab_dic = {}
-    files = os.listdir(class_path)
-    for file in files:
-        txt_path = os.path.join(class_path, file)
-        txt = open(txt_path)
-        x = txt.read()
-        x = x.strip()
-        content = x.split('\t')[0]
-        for word in tokenizer(content):
-            vocab_dic[word] = vocab_dic.get(word, 0) + 1
-    vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= min_freq], key=lambda x: x[1], reverse=True)[:max_size]
-    # print(vocab_list)
+    for folder in folders:
+        folder_path = os.path.join(all_path, folder)
+        files = os.listdir(folder_path)
+        for file in files:
+            txt_path = os.path.join(folder_path, file)
+            txt = open(txt_path)
+            x = txt.read()
+            x = x.strip()
+            content = x.split('\t')[0]
+            for word in tokenizer(content):
+                vocab_dic[word] = vocab_dic.get(word, 0) + 1
+        vocab_list = sorted([_ for _ in vocab_dic.items() if _[1] >= min_freq], key=lambda x: x[1], reverse=True)[:max_size]
+        print(vocab_list)
     vocab_dic = {word_count[0]: idx for idx, word_count in enumerate(vocab_list)}
-    # print(vocab_dic)
+    print(vocab_dic)
     vocab_dic.update({UNK: len(vocab_dic), PAD: len(vocab_dic) + 1})
     # print(vocab_dic)
-    folder = os.path.basename(class_path)
-    lables = {
-        '娱乐': 0,
-        '游戏': 1,
-        '星座': 2,
-        '体育': 3,
-        '时政': 4,
-        '时尚': 5,
-        '社会': 6,
-        '科技': 7,
-        '教育': 8,
-        '家居': 9,
-        '股票': 10,
-        '房产': 11,
-        '彩票': 12,
-        '财经': 13,
-    }
-    lable = lables[folder]
-    print(lable)
+    return vocab_dic
 
-    return vocab_dic, lable
-
-def build_dataset(path, ues_word):
+def build_dataset(all_path, ues_word):
     if ues_word:
         tokenizer = lambda x: x.split(' ')  # 以空格隔开，word-level
     else:
@@ -59,36 +42,64 @@ def build_dataset(path, ues_word):
     if os.path.exists("./data/vocab_new.pkl"):
         vocab = pkl.load(open("./data/vocab_new.pkl", 'rb'))
     else:
-        vocab, lable = read_txt(path, tokenizer=tokenizer, max_size=MAX_VOCAB_SIZE, min_freq=1)
-        pkl.dump((vocab, lable), open("./data/vocab_new.pkl", 'wb'))
+        vocab = read_txt(all_path, tokenizer=tokenizer, max_size=MAX_VOCAB_SIZE, min_freq=1)
+        pkl.dump(vocab, open("./data/vocab_new.pkl", 'wb'))
     print(f"Vocab size: {len(vocab)}")
 
-    def load_dataset(path, pad_size=32):
-        contents = []
-        files = os.listdir(path)
-        for file in files:
-            txt_path = os.path.join(path, file)
-            txt = open(txt_path)
-            x = txt.read()
-            x = x.strip()
-            content = x.split('\t')[0]
-            words_line = []
-            token = tokenizer(content)
-            seq_len = len(token)
-            if pad_size:
-                if len(token) < pad_size:
-                    token.extend([vocab.get(PAD)] * (pad_size - len(token)))
-                else:
-                    token = token[:pad_size]
-                    seq_len = pad_size
-            # word to id
-            for word in token:
-                words_line.append(vocab.get(word, vocab.get(UNK)))
-            contents.append((words_line, int(lable), seq_len))
-        return contents  # [([...], 0), ([...], 1), ...]
-    train = load_dataset(path, pad_size=32)
+    def load_dataset(all_path, pad_size=32):
+        train_data = []
+        test_data = []
+        folders = os.listdir(all_path)
+        for folder in folders:
+            folder_path = os.path.join(all_path, folder)
+            folder_l = os.path.basename(folder_path)
+            contents = []
+            lables = {
+                '娱乐': 0,
+                '游戏': 1,
+                '星座': 2,
+                '体育': 3,
+                '时政': 4,
+                '时尚': 5,
+                '社会': 6,
+                '科技': 7,
+                '教育': 8,
+                '家居': 9,
+                '股票': 10,
+                '房产': 11,
+                '彩票': 12,
+                '财经': 13,
+            }
+            lable = lables[folder_l]
+            print(lable)
+            files = os.listdir(folder_path)
+            for file in files:
+                txt_path = os.path.join(folder_path, file)
+                txt = open(txt_path)
+                x = txt.read()
+                x = x.strip()
+                content = x.split('\t')[0]
+                words_line = []
+                token = tokenizer(content)
+                seq_len = len(token)
+                if pad_size:
+                    if len(token) < pad_size:
+                        token.extend([vocab.get(PAD)] * (pad_size - len(token)))
+                    else:
+                        token = token[:pad_size]
+                        seq_len = pad_size
+                # word to id
+                for word in token:
+                    words_line.append(vocab.get(word, vocab.get(UNK)))
+                contents.append((words_line, int(lable), seq_len))
+            print(contents)
+            train, test = train_test_split(contents, test_size=0.2)
+            train_data.extend(train)
+            test_data.extend(test)
+        return train_data, test_data  # [([...], 0), ([...], 1), ...]
+    train_data, test_data = load_dataset(all_path, pad_size=32)
     # print(train)
-    return vocab, train
+    return vocab, train_data, test_data
 
 
 class DatasetIterater(object):
@@ -161,22 +172,21 @@ if __name__ == "__main__":
     pretrain_dir = "./data/sgns.sogou.char"
     folders = os.listdir(all_path)
     embedding_s = []
-    for folder in folders:
-        folder_path = os.path.join(all_path, folder)
-        vocab, train = build_dataset(folder_path, args.word)
-        embeddings = np.random.rand(len(vocab), emb_dim)
-        f = open(pretrain_dir, "r", encoding='UTF-8')
-        for i, line in enumerate(f.readlines()):
-            # if i == 0:  # 若第一行是标题，则跳过
-            #     continue
-            lin = line.strip().split(" ")
-            if lin[0] in vocab:
-                idx = vocab[lin[0]]
-                emb = [float(x) for x in lin[1:301]]
-                embeddings[idx] = np.asarray(emb, dtype='float32')
-        f.close()
-        for elem in embeddings:
-            embedding_s.append(elem)
-    embedding_s = np.array(embedding_s)
-    np.savez_compressed(filename_trimmed_dir, embeddings=embedding_s)
+    vocab, train_data, test_data = build_dataset(all_path, args.word)
+    print(vocab)
+    print(type(train_data))
+    print(test_data)
+    embeddings = np.random.rand(len(vocab), emb_dim)
+    f = open(pretrain_dir, "r", encoding='UTF-8')
+    for i, line in enumerate(f.readlines()):
+        # if i == 0:  # 若第一行是标题，则跳过
+        #     continue
+        lin = line.strip().split(" ")
+        if lin[0] in vocab:
+            idx = vocab[lin[0]]
+            emb = [float(x) for x in lin[1:301]]
+            embeddings[idx] = np.asarray(emb, dtype='float32')
+    f.close()
+    print(embeddings)
+    np.savez_compressed(filename_trimmed_dir, embeddings=embeddings)
 
