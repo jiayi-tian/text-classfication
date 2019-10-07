@@ -160,6 +160,7 @@ if __name__ == "__main__":
     filename_trimmed_dir = "./data/embedding_SougouNews"
     pretrain_dir = "./data/sgns.sogou.char"
     folders = os.listdir(all_path)
+    embedding_s = []
     for folder in folders:
         folder_path = os.path.join(all_path, folder)
         vocab, train = build_dataset(folder_path, args.word)
@@ -174,6 +175,8 @@ if __name__ == "__main__":
                 emb = [float(x) for x in lin[1:301]]
                 embeddings[idx] = np.asarray(emb, dtype='float32')
         f.close()
-        np.savez_compressed(filename_trimmed_dir, embeddings=embeddings)
-
+        for elem in embeddings:
+            embedding_s.append(elem)
+    embedding_s = np.array(embedding_s)
+    np.savez_compressed(filename_trimmed_dir, embeddings=embedding_s)
 
